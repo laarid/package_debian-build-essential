@@ -1,0 +1,79 @@
+dist: trusty
+sudo: required
+services:
+- docker
+language: cpp
+
+env:
+  global:
+  - DOCKER_EXEC_ROOT="sudo docker exec -it -u root test_container"
+  - DOCKER_EXEC="sudo docker exec -it test_container"
+  - DOCKER_EXEC_NOTTY="sudo docker exec test_container"
+  - BINTRAY_USER=laarid
+  - BINTRAY_REPO=main
+  - BINTRAY_DESC="Additional crossbuild-essential packages used by LAARiD"
+  - BINTRAY_COMPONENT=main
+
+branches:
+  only:
+  - master
+  - /^v\d+\.\d+\.\d+/
+
+before_install:
+- sudo docker pull laarid/devel:amd64
+- sudo docker images
+- |
+  sudo docker run --detach --tty \
+    --name test_container \
+    --volume ${TRAVIS_BUILD_DIR}:${TRAVIS_BUILD_DIR} \
+    --workdir ${TRAVIS_BUILD_DIR} \
+    --add-host dl.bintray.com:$(nslookup dl.bintray.com | grep -m1 -A1 Name: | grep Address: | awk '{print $2}') \
+    laarid/devel:amd64 \
+    /bin/bash
+
+install:
+- ${DOCKER_EXEC_ROOT} /bin/sh -c "echo \"\$(cat /etc/apt/sources.list | sed 's,^deb ,deb-src ,')\" >> /etc/apt/sources.list"
+- ${DOCKER_EXEC_ROOT} rm -f /etc/apt/sources.list.d/bintray.list
+- ${DOCKER_EXEC_ROOT} apt-get update --quiet --quiet
+- ${DOCKER_EXEC_ROOT} apt-get build-dep -y build-essential
+
+script:
+- ${DOCKER_EXEC} apt-get source build-essential
+- if [ -n "${TRAVIS_TAG}" ]; then
+    [ "${TRAVIS_TAG#v}" == "$(cat build-essential-*/debian/changelog | head -1 | sed 's,.*(\([^)]\+\)).*,\1,')" ] || exit 1;
+  fi
+- ${DOCKER_EXEC} /bin/sh -c "cd \$(ls -d ./build-essential-*); sed -i 's/^#//' debian/cross-targets && debian/rules debian/control && fakeroot debian/rules binary"
+- for pname in $(ls -1 ./*.deb | cut -d/ -f2 | cut -d_ -f1); do
+    [ -z "$(apt-cache pkgnames ${pname})" ] || rm ./${pname}_*;
+  done; ls -1 ./*.deb
+
+before_deploy:
+- |
+  cat .bintray.json.in | \
+    sed -e "s#@BINTRAY_PACKAGE@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}')#g" \
+      -e "s#@BINTRAY_USER@#${BINTRAY_USER}#g" \
+      -e "s#@BINTRAY_REPO@#${BINTRAY_REPO}#g" \
+      -e "s#@BINTRAY_DESC@#${BINTRAY_DESC}#g" \
+      -e "s#@GITHUB_REPO@#${TRAVIS_REPO_SLUG}#g" \
+      -e "s,@BINTRAY_VERSION@,${TRAVIS_TAG#v},g" \
+      -e "s#@BINTRAY_RELEASE_DATE@#$(cat build-essential-*/debian/changelog | grep -m 1 '^ -- ' | sed 's,^.*  ,,')#g" \
+      -e "s#@BINTRAY_OUTDIR@#${TRAVIS_BUILD_DIR}#g" \
+      -e "s#@BINTRAY_POOLABBR@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}' | cut -c1)#g" \
+      -e "s#@BINTRAY_SUITE@#$(${DOCKER_EXEC_NOTTY} cat /etc/apt/sources.list | grep -m 1 '^deb ' | awk '{print $3}')#g" \
+      -e "s#@BINTRAY_COMPONENT@#${BINTRAY_COMPONENT}#g" \
+      -e "s#@BINTRAY_ARCH@#all#g" | \
+      tee .bintray.json
+
+deploy:
+- provider: bintray
+  file: .bintray.json
+  user: vicamo
+  key:
+    secure: "knwkf6fbvvTcmWHkpN7oijKK0JM7yRZQ93SgLGdQ92RYYkx8HG3UBIRSPBFCNU5Hgmp5EX278TcB2FbxDObh7e0qiWKqYTL1E+waGuWNH+96WdhoVqT9IfOjmT4iS7KTcU2hygBy8wGBE1geOu6vlUPUj2QweeEKHvPlP3AMGDSPsygHUX9y7XG/TIlOYsF3Jt/VXN+Y2qZHwbBI5O+gdHHhNqK9mEVIt4cf2O32iM8BVblACfT73enOajGbm/aFWwTnWDEue5X9hEhWR7NWUSMV2QGcsGHlEp2vIHBBJ4Fdfbgwz9acz3o3qPcOhFul2MRqUzAz5Dd76xxPjEYnO4t20Ci870+rwreydKZp4I1aV9Gp3/Ods+Vg2kn0ibl9hduGBaNm8NVju7EYKRmybqKG0RMXPb50v5IYyMZ0WrEQqwc4UGFd/FAs8WJFBzNWEFnMLaq2FOPKB/cIlSyD4uqF3zgTWbF5ds8uzTGI0013cvBmaF9fnNIgjy1ln3xNmoitBKsRLW003+QXUagE+yLdvKksMvDZ/Ss6zcw2To+Df1+AdTytJE9FoGPRMhOUEvmKop4p89X/SZQGm+UF5h3Cc95ny3r3PMceQxqvWusjI1++2KfajpHPxbKCDbGfxq8Qxxa6HqDKp0mRI9qcnxURm4cVasmKQXUrKkKd9QE="
+  on:
+    tags: true
+
+notifications:
+  slack:
+    rooms:
+    - secure: "fli2mxAMZ/xv5432Y5xPvq7xk05k1oEcbi31kbDIjKrgobBX9s9+oxD2hsc3CH+1sVQg5RjMhEXg+fX5r5+89a5mdKkwQTYdyRZjyCDrdg9mYwj2/0kvIcGLMQMFyMgOhckJ9Joi1evTS4qJe2mXDtJLAonfZYcF1GrePsEbOheqi2nuT1FSsG+ow5uwgk7K0sVhl5tUsjhsNLtIKoAha6vvaMTEqPF7EhFYqmdAl2E7FvzTyHv6krVG/JtPjAPyn36DjFnYunmJn3K0+QRAoXCexR1fShfTRw0kyTJU2zO4b52x4cKY+Gktp6dXpgQw73KpyvYBOJlRP8q0VYB6nyE73eXGMqRVcp0NBN+CwR5yoKT8JTPkx8MxUfx2REiIS5D/Yxy/ngBMmtYs2++1HetL3gWSxYi4LvwZees0C0/56iwhgsQdoYuZgmAam3Lw9BnuIkKf0BsDTo4ePQWyNKjqP6nDz8CHsQ8ahfTEBesEIsLhPCLnrXYO0TlyoGMxnMD0Cd920FJXCR93uaJXT9AtCar+AASTs5zqT4+lV4k7cXG7Ubdmm6Oj8w7OK2FT3xsMXQ9xcOsLIPXvw/VlR8ZXY4IQw0BWhD1Zfr2RcSD3ZjzHchArm+m+kT266yLCyqnTY0IvCrb2432TX0ryM34ZLM6Kz6nqZpNvIjKe5dI="
