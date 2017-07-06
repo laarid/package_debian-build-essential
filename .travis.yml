@@ -20,7 +20,7 @@ branches:
   - /^v\d+\.\d+/
 
 before_install:
-- sudo docker pull laarid/devel:amd64
+- sudo docker pull laarid/native-build:amd64
 - sudo docker images
 - |
   sudo docker run --detach --tty \
@@ -28,7 +28,7 @@ before_install:
     --volume ${TRAVIS_BUILD_DIR}:${TRAVIS_BUILD_DIR} \
     --workdir ${TRAVIS_BUILD_DIR} \
     --add-host dl.bintray.com:$(nslookup dl.bintray.com | grep -m1 -A1 Name: | grep Address: | awk '{print $2}') \
-    laarid/devel:amd64 \
+    laarid/native-build:amd64 \
     /bin/bash
 
 install:
