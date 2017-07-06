@@ -44,9 +44,7 @@ script:
     [ "${TRAVIS_TAG#v}" == "$(cat build-essential-*/debian/changelog | head -1 | sed 's,.*(\([^)]\+\)).*,\1,')" ] || exit 1;
   fi
 - ${DOCKER_EXEC} /bin/sh -c "cd \$(ls -d ./build-essential-*); sed -i 's/^#//' debian/cross-targets && debian/rules debian/control && fakeroot debian/rules binary"
-- for pname in $(ls -1 ./*.deb | cut -d/ -f2 | cut -d_ -f1); do
-    [ -z "$(apt-cache pkgnames ${pname})" ] || rm ./${pname}_*;
-  done; ls -1 ./*.deb
+- ${DOCKER_EXEC} /bin/sh -c "for pname in \$(ls -1 ./*.deb | cut -d/ -f2 | cut -d_ -f1); do [ -z \"\$(apt-cache pkgnames \${pname})\" ] || rm ./\${pname}_*; done; ls -1 ./*.deb"
 
 before_deploy:
 - |
