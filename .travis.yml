@@ -17,7 +17,7 @@ env:
 branches:
   only:
   - master
-  - /^v\d+\.\d+/
+  - release
 
 before_install:
 - sudo docker pull laarid/native-build:amd64
@@ -40,9 +40,6 @@ install:
 
 script:
 - ${DOCKER_EXEC} apt-get source build-essential
-- if [ -n "${TRAVIS_TAG}" ]; then
-    [ "${TRAVIS_TAG#v}" == "$(cat build-essential-*/debian/changelog | head -1 | sed 's,.*(\([^)]\+\)).*,\1,')" ] || exit 1;
-  fi
 - ${DOCKER_EXEC} /bin/sh -c "cd \$(ls -d ./build-essential-*); sed -i 's/^#//' debian/cross-targets && debian/rules debian/control && fakeroot debian/rules binary"
 - ${DOCKER_EXEC} /bin/sh -c "for pname in \$(ls -1 ./*.deb | cut -d/ -f2 | cut -d_ -f1); do [ -z \"\$(apt-cache pkgnames \${pname})\" ] || rm ./\${pname}_*; done; ls -1 ./*.deb"
 
@@ -54,7 +51,7 @@ before_deploy:
       -e "s#@BINTRAY_REPO@#${BINTRAY_REPO}#g" \
       -e "s#@BINTRAY_DESC@#${BINTRAY_DESC}#g" \
       -e "s#@GITHUB_REPO@#${TRAVIS_REPO_SLUG}#g" \
-      -e "s,@BINTRAY_VERSION@,${TRAVIS_TAG#v},g" \
+      -e "s,@BINTRAY_VERSION@,$(cat build-essential-*/debian/changelog | head -1 | sed 's,.*(\([^)]\+\)).*,\1,'),g" \
       -e "s#@BINTRAY_RELEASE_DATE@#$(cat build-essential-*/debian/changelog | grep -m 1 '^ -- ' | sed 's,^.*  ,,')#g" \
       -e "s#@BINTRAY_OUTDIR@#${TRAVIS_BUILD_DIR}#g" \
       -e "s#@BINTRAY_POOLABBR@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}' | cut -c1)#g" \
@@ -70,7 +67,7 @@ deploy:
   key:
     secure: "knwkf6fbvvTcmWHkpN7oijKK0JM7yRZQ93SgLGdQ92RYYkx8HG3UBIRSPBFCNU5Hgmp5EX278TcB2FbxDObh7e0qiWKqYTL1E+waGuWNH+96WdhoVqT9IfOjmT4iS7KTcU2hygBy8wGBE1geOu6vlUPUj2QweeEKHvPlP3AMGDSPsygHUX9y7XG/TIlOYsF3Jt/VXN+Y2qZHwbBI5O+gdHHhNqK9mEVIt4cf2O32iM8BVblACfT73enOajGbm/aFWwTnWDEue5X9hEhWR7NWUSMV2QGcsGHlEp2vIHBBJ4Fdfbgwz9acz3o3qPcOhFul2MRqUzAz5Dd76xxPjEYnO4t20Ci870+rwreydKZp4I1aV9Gp3/Ods+Vg2kn0ibl9hduGBaNm8NVju7EYKRmybqKG0RMXPb50v5IYyMZ0WrEQqwc4UGFd/FAs8WJFBzNWEFnMLaq2FOPKB/cIlSyD4uqF3zgTWbF5ds8uzTGI0013cvBmaF9fnNIgjy1ln3xNmoitBKsRLW003+QXUagE+yLdvKksMvDZ/Ss6zcw2To+Df1+AdTytJE9FoGPRMhOUEvmKop4p89X/SZQGm+UF5h3Cc95ny3r3PMceQxqvWusjI1++2KfajpHPxbKCDbGfxq8Qxxa6HqDKp0mRI9qcnxURm4cVasmKQXUrKkKd9QE="
   on:
-    tags: true
+    branch: release
 
 notifications:
   slack:
