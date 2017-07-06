@@ -22,6 +22,7 @@ branches:
 before_install:
 - sudo docker pull laarid/native-build:amd64
 - sudo docker images
+- chmod o+w ${TRAVIS_BUILD_DIR}
 - |
   sudo docker run --detach --tty \
     --name test_container \
