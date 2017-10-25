@@ -1,13 +1,11 @@
-dist: trusty
 sudo: required
 services:
 - docker
-language: cpp
 
 env:
   global:
-  - DOCKER_EXEC_ROOT="sudo docker exec -it -u root test_container"
-  - DOCKER_EXEC="sudo docker exec -it test_container"
+  - DOCKER_EXEC_ROOT="sudo docker exec --tty --user root test_container"
+  - DOCKER_EXEC="sudo docker exec --tty test_container"
   - DOCKER_EXEC_NOTTY="sudo docker exec test_container"
   - BINTRAY_USER=laarid
   - BINTRAY_REPO=main
@@ -44,10 +42,10 @@ before_deploy:
     sed -e "s#@BINTRAY_PACKAGE@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}')#g" \
       -e "s#@BINTRAY_USER@#${BINTRAY_USER}#g" \
       -e "s#@BINTRAY_REPO@#${BINTRAY_REPO}#g" \
-      -e "s#@BINTRAY_DESC@#${BINTRAY_DESC}#g" \
+      -e "s#@BINTRAY_DESC@#$(cat debian/control | grep -m1 ^Description: | cut -d ' ' -f2-)#g" \
       -e "s#@GITHUB_REPO@#${TRAVIS_REPO_SLUG}#g" \
-      -e "s,@BINTRAY_VERSION@,$(cat build-essential-*/debian/changelog | head -1 | sed 's,.*(\([^)]\+\)).*,\1,'),g" \
-      -e "s#@BINTRAY_RELEASE_DATE@#$(cat build-essential-*/debian/changelog | grep -m 1 '^ -- ' | sed 's,^.*  ,,')#g" \
+      -e "s,@BINTRAY_VERSION@,$(${DOCKER_EXEC_NOTTY} dpkg-parsechangelog | grep ^Version: | cut -d ' ' -f 2),g" \
+      -e "s#@BINTRAY_RELEASE_DATE@#$(date -Iseconds --date="$(${DOCKER_EXEC_NOTTY} dpkg-parsechangelog | grep ^Date: | cut -d ' ' -f 2-)")#g" \
       -e "s#@BINTRAY_OUTDIR@#${TRAVIS_BUILD_DIR}#g" \
       -e "s#@BINTRAY_POOLABBR@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}' | cut -c1)#g" \
       -e "s#@BINTRAY_SUITE@#${TRAVIS_BRANCH}#g" \
