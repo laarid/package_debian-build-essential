@@ -44,8 +44,8 @@ before_deploy:
       -e "s#@BINTRAY_REPO@#${BINTRAY_REPO}#g" \
       -e "s#@BINTRAY_DESC@#$(cat debian/control | grep -m1 ^Description: | cut -d ' ' -f2-)#g" \
       -e "s#@GITHUB_REPO@#${TRAVIS_REPO_SLUG}#g" \
-      -e "s,@BINTRAY_VERSION@,$(${DOCKER_EXEC_NOTTY} dpkg-parsechangelog | grep ^Version: | cut -d ' ' -f 2),g" \
-      -e "s#@BINTRAY_RELEASE_DATE@#$(date -Iseconds --date="$(${DOCKER_EXEC_NOTTY} dpkg-parsechangelog | grep ^Date: | cut -d ' ' -f 2-)")#g" \
+      -e "s,@BINTRAY_VERSION@,$(${DOCKER_EXEC_NOTTY} /bin/sh -c "cd \$(ls -d ./build-essential-*); dpkg-parsechangelog" | grep ^Version: | cut -d ' ' -f 2),g" \
+      -e "s#@BINTRAY_RELEASE_DATE@#$(date -Iseconds --date="$(${DOCKER_EXEC_NOTTY} /bin/sh -c "cd \$(ls -d ./build-essential-*); dpkg-parsechangelog" | grep ^Date: | cut -d ' ' -f 2-)")#g" \
       -e "s#@BINTRAY_OUTDIR@#${TRAVIS_BUILD_DIR}#g" \
       -e "s#@BINTRAY_POOLABBR@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}' | cut -c1)#g" \
       -e "s#@BINTRAY_SUITE@#${TRAVIS_BRANCH}#g" \
