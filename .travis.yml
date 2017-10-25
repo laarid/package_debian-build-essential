@@ -14,13 +14,8 @@ env:
   - BINTRAY_DESC="Additional crossbuild-essential packages used by LAARiD"
   - BINTRAY_COMPONENT=main
 
-branches:
-  only:
-  - master
-  - release
-
 before_install:
-- sudo docker pull laarid/native-build:amd64
+- sudo docker pull laarid/native-build:${TRAVIS_BRANCH}-amd64
 - sudo docker images
 - chmod o+w ${TRAVIS_BUILD_DIR}
 - |
@@ -29,7 +24,7 @@ before_install:
     --volume ${TRAVIS_BUILD_DIR}:${TRAVIS_BUILD_DIR} \
     --workdir ${TRAVIS_BUILD_DIR} \
     --add-host dl.bintray.com:$(nslookup dl.bintray.com | grep -m1 -A1 Name: | grep Address: | awk '{print $2}') \
-    laarid/native-build:amd64 \
+    laarid/native-build:${TRAVIS_BRANCH}-amd64 \
     /bin/bash
 
 install:
@@ -55,7 +50,7 @@ before_deploy:
       -e "s#@BINTRAY_RELEASE_DATE@#$(cat build-essential-*/debian/changelog | grep -m 1 '^ -- ' | sed 's,^.*  ,,')#g" \
       -e "s#@BINTRAY_OUTDIR@#${TRAVIS_BUILD_DIR}#g" \
       -e "s#@BINTRAY_POOLABBR@#$(cat build-essential-*/debian/control | grep ^Source: | awk '{print $2}' | cut -c1)#g" \
-      -e "s#@BINTRAY_SUITE@#$(${DOCKER_EXEC_NOTTY} cat /etc/apt/sources.list | grep -m 1 '^deb ' | awk '{print $3}')#g" \
+      -e "s#@BINTRAY_SUITE@#${TRAVIS_BRANCH}#g" \
       -e "s#@BINTRAY_COMPONENT@#${BINTRAY_COMPONENT}#g" \
       -e "s#@BINTRAY_ARCH@#all#g" | \
       tee .bintray.json
@@ -67,7 +62,8 @@ deploy:
   key:
     secure: "knwkf6fbvvTcmWHkpN7oijKK0JM7yRZQ93SgLGdQ92RYYkx8HG3UBIRSPBFCNU5Hgmp5EX278TcB2FbxDObh7e0qiWKqYTL1E+waGuWNH+96WdhoVqT9IfOjmT4iS7KTcU2hygBy8wGBE1geOu6vlUPUj2QweeEKHvPlP3AMGDSPsygHUX9y7XG/TIlOYsF3Jt/VXN+Y2qZHwbBI5O+gdHHhNqK9mEVIt4cf2O32iM8BVblACfT73enOajGbm/aFWwTnWDEue5X9hEhWR7NWUSMV2QGcsGHlEp2vIHBBJ4Fdfbgwz9acz3o3qPcOhFul2MRqUzAz5Dd76xxPjEYnO4t20Ci870+rwreydKZp4I1aV9Gp3/Ods+Vg2kn0ibl9hduGBaNm8NVju7EYKRmybqKG0RMXPb50v5IYyMZ0WrEQqwc4UGFd/FAs8WJFBzNWEFnMLaq2FOPKB/cIlSyD4uqF3zgTWbF5ds8uzTGI0013cvBmaF9fnNIgjy1ln3xNmoitBKsRLW003+QXUagE+yLdvKksMvDZ/Ss6zcw2To+Df1+AdTytJE9FoGPRMhOUEvmKop4p89X/SZQGm+UF5h3Cc95ny3r3PMceQxqvWusjI1++2KfajpHPxbKCDbGfxq8Qxxa6HqDKp0mRI9qcnxURm4cVasmKQXUrKkKd9QE="
   on:
-    branch: release
+    all_branches: true
+    condition: "$TRAVIS_PULL_REQUEST = false"
 
 notifications:
   slack:
